@@ -19,5 +19,7 @@ public class OrderDTO {
 
     double totalPrice;
 
+    String cardNo;
+
     TrackerDTO trackerDTO;
 }

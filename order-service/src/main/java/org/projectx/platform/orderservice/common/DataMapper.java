@@ -31,7 +31,7 @@ public class DataMapper {
 
     public final static OrderDTO convertOrderEntityToOrderDTO(OrderEntity order) {
         OrderDTO orderDTO = new OrderDTO();
-        orderDTO.setTrackerDTO(new TrackerDTO(orderDTO.getTrackerDTO().getId(), orderDTO.getTrackerDTO().getStatus()));
+        orderDTO.setTrackerDTO(new TrackerDTO(order.getTrackingId().getId(), order.getTrackingId().getStatus()));
         orderDTO.setItemId(order.getItemEntity().getId());
         orderDTO.setUserId(order.getUserEntity().getId());
         orderDTO.setNumberOfItems(order.getNumberOfItems());
