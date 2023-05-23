@@ -25,7 +25,7 @@ public class OrderController {
 
     @PostMapping("/orders")
     public OrderDTO saveOrder(@RequestBody OrderDTO order) {
-        return DataMapper.convertOrderEntityToOrderDTO(orderHandler.orderItem(order));
+        return DataMapper.convertOrderEntityToOrderDTO(orderHandler.saveOrder(order));
     }
 
     /**

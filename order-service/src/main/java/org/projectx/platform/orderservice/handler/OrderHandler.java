@@ -39,7 +39,7 @@ public class OrderHandler {
     }
 
     @Transactional
-    public OrderEntity orderItem(OrderDTO orderdto) {
+    public OrderEntity saveOrder(OrderDTO orderdto) {
         if (orderdto.getCardNo() == null) {
             throw new RuntimeException("Credit card not provided.");
         }
@@ -72,5 +72,42 @@ public class OrderHandler {
         kafkaTemplate.send(topic, paymentRequestEvent);
 
         return orderEntity;
+    }
+
+    @Transactional
+    public void completeOrder(Long orderId) {
+
+        Optional<OrderEntity> orderEntity = orderService.getOrder(orderId);
+
+        log.info("Order saved successfully. Sending request to payment service.");
+
+        OrderEntity order = orderEntity.get();
+
+        TrackerEntity trackingId = order.getTrackingId();
+        order.setTrackingId(new TrackerEntity(trackingId.getId(), OrderStatus.FINALIZING));
+
+        orderService.saveOrder(order);
+
+        //performing some business process for 10 sec
+        try {
+            Thread.sleep(10000);
+        } catch (Exception ex) {
+            log.error(ex.getMessage());
+        }
+
+        order.setTrackingId(new TrackerEntity(trackingId.getId(), OrderStatus.COMPLETED));
+        orderService.saveOrder(order);
+    }
+
+    public void failOrder(Long orderId) {
+
+        Optional<OrderEntity> orderEntity = orderService.getOrder(orderId);
+
+        OrderEntity order = orderEntity.get();
+
+        TrackerEntity trackingId = order.getTrackingId();
+        order.setTrackingId(new TrackerEntity(trackingId.getId(), OrderStatus.INVALID));
+
+        orderService.saveOrder(order);
     }
 }
