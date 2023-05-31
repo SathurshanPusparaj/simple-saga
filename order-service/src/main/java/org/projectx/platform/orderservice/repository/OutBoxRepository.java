@@ -9,5 +9,8 @@ import java.util.List;
 public interface OutBoxRepository extends CrudRepository<Outbox, Long> {
 
     @Query("select ou from Outbox ou where ou.processed IS NULL")
-    List<Outbox> getEntities();
+    List<Outbox> getNotTransferredMessages();
+
+    @Query("select ou from Outbox ou where ou.processed IS NOT NULL")
+    List<Outbox> getTransferredMessages();
 }

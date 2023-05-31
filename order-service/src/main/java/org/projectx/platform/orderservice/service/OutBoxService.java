@@ -15,7 +15,15 @@ public class OutBoxService {
     public void save(Outbox entity) {
         outBoxRepository.save(entity);
     }
-    public List<Outbox> getEntities() {
-        return outBoxRepository.getEntities();
+    public List<Outbox> getNotTransferredMessages() {
+        return outBoxRepository.getNotTransferredMessages();
+    }
+
+    public List<Outbox> getTransferredMessages() {
+        return outBoxRepository.getNotTransferredMessages();
+    }
+
+    public void deleteMessages (List<Outbox> entities) {
+        outBoxRepository.deleteAll(entities);
     }
 }

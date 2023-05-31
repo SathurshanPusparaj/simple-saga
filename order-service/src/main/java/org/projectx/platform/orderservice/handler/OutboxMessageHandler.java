@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.projectx.platform.orderservice.entity.Outbox;
 import org.projectx.platform.orderservice.event.PaymentRequestEvent;
-import org.projectx.platform.orderservice.repository.OutBoxRepository;
+import org.projectx.platform.orderservice.service.OutBoxService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,29 +24,35 @@ public class OutboxMessageHandler {
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     private final ObjectMapper mapper;
-    private final OutBoxRepository outBoxRepository;
+    private final OutBoxService outBoxService;
 
-    public OutboxMessageHandler(KafkaTemplate<String, Object> kafkaTemplate, ObjectMapper mapper,
-                                OutBoxRepository outBoxRepository) {
+    public OutboxMessageHandler(KafkaTemplate<String, Object> kafkaTemplate,
+                                ObjectMapper mapper,
+                                OutBoxService outBoxService) {
         this.kafkaTemplate = kafkaTemplate;
         this.mapper = mapper;
-        this.outBoxRepository = outBoxRepository;
+        this.outBoxService = outBoxService;
     }
 
     @Scheduled(fixedDelay = 2000)
-    void send() {
-
-        List<Outbox> entities = outBoxRepository.getEntities();
-
+    void sendMessages() {
+        List<Outbox> entities = outBoxService.getNotTransferredMessages();
         for (Outbox outbox : entities) {
             try {
                 PaymentRequestEvent paymentRequestEvent = mapper.readValue(outbox.getContent(), PaymentRequestEvent.class);
                 kafkaTemplate.send(topic, paymentRequestEvent);
                 outbox.setProcessed(LocalDateTime.now());
-                outBoxRepository.save(outbox);
+                outBoxService.save(outbox);
             } catch (JsonProcessingException e) {
                 log.error("unable to process outbox : {}", outbox.getId());
             }
         }
+    }
+
+    //we can use spring batch for send or delete Messages from outbox or CDC
+    @Scheduled(fixedDelay = 5000)
+    void deleteMessages() {
+        List<Outbox> entities = outBoxService.getTransferredMessages();
+        outBoxService.deleteMessages(entities);
     }
 }
