@@ -1,5 +1,7 @@
 package org.projectx.platform.orderservice.handler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.projectx.platform.orderservice.common.DataMapper;
@@ -7,14 +9,15 @@ import org.projectx.platform.orderservice.common.OrderStatus;
 import org.projectx.platform.orderservice.dto.OrderDTO;
 import org.projectx.platform.orderservice.entity.ItemEntity;
 import org.projectx.platform.orderservice.entity.OrderEntity;
+import org.projectx.platform.orderservice.entity.Outbox;
 import org.projectx.platform.orderservice.entity.TrackerEntity;
 import org.projectx.platform.orderservice.event.PaymentRequestEvent;
+import org.projectx.platform.orderservice.listeners.OutboxEventPublisher;
 import org.projectx.platform.orderservice.service.ItemService;
 import org.projectx.platform.orderservice.service.OrderService;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -22,20 +25,21 @@ import java.util.UUID;
 @Slf4j
 public class OrderHandler {
 
-    @Value("${kafka.publisher.topic.name}")
-    private String topic;
-
     private final OrderService orderService;
 
     private final ItemService itemService;
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+
+    private final OutboxEventPublisher outboxEventPublisher;
 
     public OrderHandler(OrderService orderService,
-                        ItemService itemService, KafkaTemplate kafkaTemplate) {
+                        ItemService itemService,
+                        ObjectMapper objectMapper, OutboxEventPublisher outboxEventPublisher) {
         this.orderService = orderService;
         this.itemService = itemService;
-        this.kafkaTemplate = kafkaTemplate;
+        this.objectMapper = objectMapper;
+        this.outboxEventPublisher = outboxEventPublisher;
     }
 
     @Transactional
@@ -55,6 +59,7 @@ public class OrderHandler {
         }
 
         OrderEntity order = DataMapper.convertOrderDTOToOrderEntity(orderdto);
+        order.setTotalPrice(order.getNumberOfItems() * itemEntity.get().getPrice());
 
         ItemEntity item = itemEntity.get();
         item.setQuantity(item.getQuantity()-orderdto.getNumberOfItems());
@@ -66,10 +71,22 @@ public class OrderHandler {
 
         OrderEntity orderEntity = orderService.saveOrder(order);
 
-        log.info("Order saved successfully. Sending request to payment service.");
-
         PaymentRequestEvent paymentRequestEvent = new PaymentRequestEvent(UUID.randomUUID(), orderEntity.getId(), orderdto.getCardNo(), orderEntity.getTotalPrice());
-        kafkaTemplate.send(topic, paymentRequestEvent);
+
+        String value = null;
+        try {
+            value = objectMapper.writeValueAsString(paymentRequestEvent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+        Outbox outbox = new Outbox();
+        outbox.setContent(value);
+        outbox.setOccurred(LocalDateTime.now());
+
+        outboxEventPublisher.publish(outbox);
+
+        log.info("Order saved successfully. Sending request to payment service.");
 
         return orderEntity;
     }

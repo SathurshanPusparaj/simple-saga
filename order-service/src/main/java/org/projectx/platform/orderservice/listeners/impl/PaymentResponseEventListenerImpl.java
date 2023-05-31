@@ -8,11 +8,11 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
-public class PaymentEventListenerImpl implements PaymentEventListener {
+public class PaymentResponseEventListenerImpl implements PaymentEventListener {
 
     private final OrderHandler orderHandler;
 
-    public PaymentEventListenerImpl(OrderHandler orderHandler) {
+    public PaymentResponseEventListenerImpl(OrderHandler orderHandler) {
         this.orderHandler = orderHandler;
     }
 
